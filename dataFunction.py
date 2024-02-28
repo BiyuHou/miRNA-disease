@@ -3,37 +3,41 @@ import os
 import numpy as np
 from tqdm import tqdm
 
-### 这个类用来生成正负样本、划分数据集、树的特征向量
-### 输入为关联矩阵的文件路径
+### This class is used to generate positive and negative samples, partition data sets, tree feature vectors（这个类用来生成正负样本、划分数据集、树的特征向量）
+### The input is the file path of the association matrix
 class data_operate(object):
 	def __init__(self, dir_path):
 		super(data_operate, self).__init__()
 		self.dir_path = dir_path
 
 		if self.dir_path.endswith(".feather"):
-			print(f"你正在读取{self.dir_path}文件")
+			print(f"You are reading {self.dir_path}")
 			self.df = pd.read_feather(self.dir_path)
 		if self.dir_path.endswith(".csv"):
-			print(f"你正在读取{self.dir_path}文件")
+			print(f"You are reading {self.dir_path}")
 			self.df = pd.read_csv(self.dir_path,index_col = 0,header = 0)
 
 	def mask_function(self):
 		'''
-			将数据中1通过掩膜转化成0，用于后续计算召回率
+			The 1 in the data is converted to 0 through the mask for subsequent calculation
+			The horizontal and vertical coordinates of the converted values (disease and miRNA) are output
+			num_mask indicates the number to be converted
+			The processed association matrix was converted into a table of unassociated disease and miRNA names
+			(将数据中1通过掩膜转化成0，用于后续计算
 			将转换的数值的横纵坐标（疾病和miRNA）进行输出
 			num_mask为需要进行转换的个数
-			将经过处理的关联矩阵和被转换成无关联的疾病和miRNA名字保存成表
+			将经过处理的关联矩阵和被转换成无关联的疾病和miRNA名字保存成表)
 		'''
 		df = self.df
 		rows_values_1, cols_values_1 = (df == 1).values.nonzero()
 		rows_values_0, cols_values_0 = (df == 0).values.nonzero()
 		connect_group = [(df.index[row], df.columns[col]) for row, col in zip(rows_values_1, cols_values_1)]
 		num_connect = len(connect_group)
-		print(f"存在{num_connect}个正样本")
-		row_sum = df.sum(axis=1)	# 行，疾病名字
-		col_sum = df.sum(axis=0)	# 列，RNA名字
+		print(f"exist{num_connect}Positive sample")
+		row_sum = df.sum(axis=1)	# row, name of the disease
+		col_sum = df.sum(axis=0)	# col,name of the miRNA
 
-		# 剔除部分存在较少关联的疾病和RNA
+		# Some diseases and miRNAs with less association were excluded
 		can_be_choose_row = row_sum[row_sum>10].index.values
 		can_be_choose_col = col_sum[col_sum>10].index.values
 		can_be_choose_connect = []
@@ -47,15 +51,15 @@ class data_operate(object):
 		choose_row = []
 		choose_col = []
 		can_choose_num = len(can_be_choose_connect)
-		print(f"可计算召回率的数据：{can_choose_num}")
+		# print(f"可计算召回率的数据：{can_choose_num}")
+		#
+		# if can_choose_num < int(num_connect * 0.1): 	# 如果可计算召回率的值小于正样本的10%,则直接采用总数的10%
+		# 	num_mask = can_choose_num
+		# else:
+		# 	num_mask = int(num_connect * 0.1)					# 选取可用于计算召回率的数据的10%计算
 
-		if can_choose_num < int(num_connect * 0.1): 	# 如果可计算召回率的值小于正样本的10%,则直接采用总数的10%
-			num_mask = can_choose_num
-		else:
-			num_mask = int(num_connect * 0.1)					# 选取可用于计算召回率的数据的10%计算
 
-
-		# 随机生成避免集中
+		# Random generation avoids centralization
 		sort_choose = np.random.choice(len(can_be_choose_connect),len(can_be_choose_connect),replace=False)
 		for i in sort_choose:
 			if len(choose_row) < num_mask:
@@ -65,10 +69,10 @@ class data_operate(object):
 					choose_row.append(name_disease_row)
 					choose_col.append(name_miRNA_col)
 					mask_df.loc[name_disease_row,name_miRNA_col] = 0
-			# 当达到预设的召回率样本数量，直接退出
+			# When the preset recall rate sample size is reached, exit directly
 			else:
 				break
-		print(f"选取了{len(choose_row)}个样本计算召回率")
+		# print(f"选取了{len(choose_row)}个样本计算召回率")
 		mask_df.to_csv("./data/mask_matrix_data.csv")
 		recall_sample_dataFrame = {'disease': choose_row, 'miRNA': choose_col}
 		recall_sample_dataFrame = pd.DataFrame(recall_sample_dataFrame)
@@ -137,7 +141,7 @@ class create_tree_data(object):
 		for father_node in tqdm(miRNA_list):
 			self.father_node = father_node
 			num = 0
-			searched_node = []  # 存放搜索过的结点
+			searched_node = []  # Store the searched node
 			searched_node.append(father_node)
 			saveResult = []
 			self.searched_node = searched_node
@@ -153,7 +157,7 @@ class create_tree_data(object):
 		for father_node in tqdm(disease_list):
 			self.father_node = father_node
 			num = 0
-			searched_node = []  # 存放搜索过的结点
+			searched_node = []  # Store the searched node
 			searched_node.append(father_node)
 			saveResult = []
 
@@ -165,7 +169,7 @@ class create_tree_data(object):
 			saveResult.append(next_node)
 			self.search_next_node(next_node, num)
 
-	## 下面的这个方法要实现，将是数据转换成向量表达
+	# Convert data into vector representation
 	def create_feature_vector(self):
 		dir_miRNA_path = "./data/miRNA_tree"
 		dir_disease_path = "./data/disease_tree"
@@ -174,9 +178,9 @@ class create_tree_data(object):
 
 		disease_name = [d[:-4] for d in disease_path_list]
 		miRNA_name = [m[:-4] for m in miRNA_path_list]
-		feature_vector_sort = disease_name + miRNA_name	# 特征包含所有疾病和miRNA
+		feature_vector_sort = disease_name + miRNA_name	# Features include all diseases and miRNAs
 		np.random.seed(101)
-		np.random.shuffle(feature_vector_sort)	# 将特征随机打乱
+		np.random.shuffle(feature_vector_sort)	# Randomly shuffle the features
 		feature_vector_dict = []
 		for sort in range(len(feature_vector_sort)):
 			feature_vector_dict.append([feature_vector_sort[sort], sort])
@@ -201,7 +205,7 @@ class create_tree_data(object):
 						ord_num = feature_vector_dict[sub_node]
 						init_feature[ord_num] = r
 				except:
-					print("这个结点文件不存在",sub_node)
+					print("This node file does not exist",sub_node)
 			save_feature_vector.append(init_feature)
 
 		save_feature_vector_df = pd.DataFrame(save_feature_vector,columns = feature_vector_sort,index = feature_vector_sort)
@@ -214,6 +218,6 @@ class create_tree_data(object):
 data_operate = data_operate('./data/matrix_data.csv')
 data_operate.mask_function()
 create_tree_data = create_tree_data('./data/mask_matrix_data.csv')
-# create_tree_data.create_disease_tree()
-# create_tree_data.create_miRNA_tree()
-# create_tree_data.create_feature_vector()
+create_tree_data.create_disease_tree()
+create_tree_data.create_miRNA_tree()
+create_tree_data.create_feature_vector()

@@ -61,11 +61,11 @@ class my_model(nn.Module):
         self.out_layer = nn.Linear(hid3, output_size)
 
     def forward(self, x):
-        x = x.unsqueeze(1)    # 在最2层增加一个维度
+        x = x.unsqueeze(1)
         attention_output = self.self_attention(x, x, x, mask=None)
         x = attention_output
 
-        x = x.squeeze(1)    # 在最2层删除一个维度
+        x = x.squeeze(1)
         x = F.relu(self.input_layer(x))
         x = F.relu(self.hid_layer1(x))
         x = F.relu(self.hid_layer2(x))

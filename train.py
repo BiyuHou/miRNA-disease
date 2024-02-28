@@ -26,7 +26,7 @@ positive_sort = np.random.choice(positive_num, positive_num, replace=False) # sh
 len_single_loop = positive_num // 2
 
 nevigate_num = nevigate_sample.shape[0] # The number of negative samples
-# recall_num = recall_sample.shape[0]     # 召回样本的数量
+# recall_num = recall_sample.shape[0]
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 input_node = feature_vector_data.shape[1] * 2
@@ -47,7 +47,7 @@ no_choose_nevigate_sort = None
 save_roc_auc_score = []
 save_recall = []
 
-# # 生成召回率样本的特征值
+
 # recall_disease_sample = recall_sample["disease"].values.reshape(-1)
 # recall_miRNA_sample = recall_sample['miRNA'].values.reshape(-1)
 # recall_disease = feature_vector_data.loc[recall_disease_sample,:]
@@ -113,7 +113,7 @@ for model_loop in tqdm(range(5),desc='model_loop'):
         train_sample = train_sample.values.tolist()
         combined = list(zip(train_sample, train_label))
         np.random.shuffle(combined)
-        # Unzip and get the scrambled list(解压缩并得到打乱后的列表)
+        # Unzip and get the scrambled list
         train_sample, train_label = zip(*combined)
         train_disease_sample = [connect_group[0] for connect_group in train_sample]
         train_miRNA_sample = [connect_group[1] for connect_group in train_sample]
@@ -244,7 +244,7 @@ for model_loop in tqdm(range(5),desc='model_loop'):
 
         df_no_choose_save = pd.concat([no_choose_nevigate_sample, df_no_choose_pre], axis=1)
         # df_no_choose_save.reset_index(drop=True, inplace=True)
-        # ascending：升序
+        # ascending：
         df_no_choose_save.sort_values(by="pre", inplace=True, ascending=True)
         df_no_choose_save.reset_index(drop=True, inplace=True)
         df_no_choose_save.to_feather('./data/result_pre_nevigate/'+str(model_loop)+"_"+str(train_group)+"_pre.feather")

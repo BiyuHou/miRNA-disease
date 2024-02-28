@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2023/8/19 21:18
-# @Author
+# @Author  :
 # @File    : train.py
 # @Software: PyCharm
 import pandas as pd
-from model import my_model
+from my_model import my_model
 import torch
 import torch.nn as nn
 import numpy as np
@@ -19,14 +19,14 @@ nevigate_sample = pd.read_csv("./data/mask_nevigate.csv")
 recall_sample = pd.read_csv("./data/recall_sample.csv")
 feature_vector_data = pd.read_csv("./data/feature_vector.csv",index_col=0)
 
-#### 将所有正样本划分成五组，用来进行五折运算
+#### Divide all positive samples into five groups for the 5-fold cross verification
 positive_num = positive_sample.shape[0]
 np.random.seed(111)
-positive_sort = np.random.choice(positive_num, positive_num, replace=False) # 将顺序打乱
+positive_sort = np.random.choice(positive_num, positive_num, replace=False) # shuffle
 len_single_loop = positive_num // 2
 
-nevigate_num = nevigate_sample.shape[0] # 负样本的数量
-recall_num = recall_sample.shape[0]     # 召回样本的数量
+nevigate_num = nevigate_sample.shape[0] # The number of negative samples
+# recall_num = recall_sample.shape[0]     # 召回样本的数量
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 input_node = feature_vector_data.shape[1] * 2
@@ -37,7 +37,7 @@ out_node = 1
 
 
 
-batchSize = 2000    # 训练时数据太多，分批次训练
+batchSize = 2000    # Too much data during training. Train in batches
 loop_train = 1
 pre_nevigate = []
 
@@ -47,37 +47,37 @@ no_choose_nevigate_sort = None
 save_roc_auc_score = []
 save_recall = []
 
-# 生成召回率样本的特征值
-recall_disease_sample = recall_sample["disease"].values.reshape(-1)
-recall_miRNA_sample = recall_sample['miRNA'].values.reshape(-1)
-recall_disease = feature_vector_data.loc[recall_disease_sample,:]
-recall_miRNA = feature_vector_data.loc[recall_miRNA_sample,:]
-
-recall_disease.reset_index(drop=True, inplace=True)
-recall_miRNA.reset_index(drop=True, inplace=True)
-df_recall= pd.concat([recall_disease,recall_miRNA],axis=1)
-x_recall = df_recall.values
-
-
-save_recall = []
-for model_loop in tqdm(range(2),desc='model_loop'):
-    for train_group in range(2):
+# # 生成召回率样本的特征值
+# recall_disease_sample = recall_sample["disease"].values.reshape(-1)
+# recall_miRNA_sample = recall_sample['miRNA'].values.reshape(-1)
+# recall_disease = feature_vector_data.loc[recall_disease_sample,:]
+# recall_miRNA = feature_vector_data.loc[recall_miRNA_sample,:]
+#
+# recall_disease.reset_index(drop=True, inplace=True)
+# recall_miRNA.reset_index(drop=True, inplace=True)
+# df_recall= pd.concat([recall_disease,recall_miRNA],axis=1)
+# x_recall = df_recall.values
+#
+#
+# save_recall = []
+for model_loop in tqdm(range(5),desc='model_loop'):
+    for train_group in range(5):
         net = my_model(input_node, hid1_node, hid2_node, hid3_node, out_node)
         net.to(device)
         criterion = nn.BCELoss()
         criterion.to(device)
         optimzer = optim.Adam(net.parameters(), lr=0.0001)
 
-        # 在正负样本中挑选用于训练和测试的样本
+        # Select the samples for training and testing from the positive and negative samples
         test_positive_sample_sort = positive_sort[len_single_loop * train_group : len_single_loop * (train_group + 1)]
         train_positive_sample_sort = [p for p in positive_sort if p not in test_positive_sample_sort]
         test_positive_sample = positive_sample.iloc[test_positive_sample_sort,:]
         train_positive_sample = positive_sample.iloc[train_positive_sample_sort,:]
         #
-        if model_loop == 0 :  # 用于两步法计算
-            nevigate_sample_sort = np.random.choice(nevigate_num,2*positive_num-recall_num,replace=False)
-        elif model_loop != 0 and train_group == 0:  # 设置train_group == 0五折交叉验证过程，负样本不筛选
-            no_choose_nevigate_sample_sort = np.random.choice(int(df_no_choose_save.shape[0]*0.01971), 5*positive_num -
+        if model_loop == 0 :  # Used for two-step calculation
+            nevigate_sample_sort = np.random.choice(nevigate_num,10*positive_num-recall_num,replace=False)
+        elif model_loop != 0 and train_group == 0:  # Set train_group == 0 5-fold cross validation process, negative samples are not filtered
+            no_choose_nevigate_sample_sort = np.random.choice(df_no_choose_save.shape[0], 10*positive_num -
                                                     recall_num, replace=False)
             df_no_choose_name = df_no_choose_save.iloc[no_choose_nevigate_sample_sort,:]    # 从未训练的负样本中选取
             nevigate_sample_sort = []
@@ -86,7 +86,7 @@ for model_loop in tqdm(range(2),desc='model_loop'):
                     (nevigate_sample['disease'] == row['disease']) & (nevigate_sample['miRNA'] == row['miRNA'])].index
                 nevigate_sample_sort.extend(index)
 
-        # nevigate_sample 为负样本，疾病和miRNA对
+        # nevigate_sample for negative samples, disease and miRNA pairs
         test_nevigate_sample_sort = nevigate_sample_sort[len_single_loop*train_group:len_single_loop*(train_group+1)]
         if train_group == 0:
             train_nevigate_sample_sort = nevigate_sample_sort[len_single_loop:]
@@ -113,7 +113,7 @@ for model_loop in tqdm(range(2),desc='model_loop'):
         train_sample = train_sample.values.tolist()
         combined = list(zip(train_sample, train_label))
         np.random.shuffle(combined)
-        # 解压缩并得到打乱后的列表
+        # Unzip and get the scrambled list(解压缩并得到打乱后的列表)
         train_sample, train_label = zip(*combined)
         train_disease_sample = [connect_group[0] for connect_group in train_sample]
         train_miRNA_sample = [connect_group[1] for connect_group in train_sample]
@@ -128,7 +128,7 @@ for model_loop in tqdm(range(2),desc='model_loop'):
         test_miRNA_sample = [connect_group[1] for connect_group in test_sample]
         df_test_disease = feature_vector_data.loc[test_disease_sample, :]
         df_test_miRNA = feature_vector_data.loc[test_miRNA_sample, :]
-        df_test_disease.reset_index(drop=True, inplace=True)    # 重置标签
+        df_test_disease.reset_index(drop=True, inplace=True)    # Reset tag
         df_test_miRNA.reset_index(drop=True, inplace=True)
         df_test = pd.concat([df_test_disease, df_test_miRNA], axis=1)
         for epoch in tqdm(range(loop_train),desc='loop_train'):
@@ -177,7 +177,7 @@ for model_loop in tqdm(range(2),desc='model_loop'):
 
             y_pre_test = net(X_test)
             y_score = y_pre_test.reshape(-1)
-            y_pre_0_1 = np.where(y_score > 0.5, 1, 0)   # 设置阈值，大于0.5时为 1， 否则为0
+            y_pre_0_1 = np.where(y_score > 0.5, 1, 0)   # Set the threshold to 1 if it is greater than 0.5 and 0 if it is not
             acc =  metrics.accuracy_score(y_test, y_pre_0_1)
 
             print(f"-----两步法：{model_loop}---五折：{train_group}-训练轮数：{epoch}--准确率：{acc}--------------")
@@ -193,31 +193,31 @@ for model_loop in tqdm(range(2),desc='model_loop'):
 
         y_score = y_score.tolist()
         test_pre_label = pd.DataFrame({"pre":y_score,"label":test_label})
-        save_test_sample.reset_index(drop=True, inplace=True)  # 重置标签
+        save_test_sample.reset_index(drop=True, inplace=True)  # Reset tag
         test_pre_label.reset_index(drop=True, inplace=True)
         save_test_pre_label = pd.concat([save_test_sample,test_pre_label],axis=1)
         save_test_pre_label.to_csv(f"./data/result_pre_test/{model_loop}_{train_group}.csv")
-        # 将之前的数据删除
+        # Delete the previous data
         del df_train
         del x_test
         del df_train_miRNA
         del df_train_disease
         del X_test,df_test_disease,df_test_miRNA
 
-        # 计算未被选中的负样本的预测值
-        if train_group == 0:  # 设置train_group == 0五折交叉验证过程，负样本不筛选
+        # Calculates the predicted value of the negative sample that is not selected
+        if train_group == 0:  # Set train_group == 0 5-fold cross validation process, negative samples are not filtered
             no_choose_nevigate_sort = [i for i in range(nevigate_sample.shape[0]) if i not in nevigate_sample_sort]
             no_choose_nevigate_sample = nevigate_sample.iloc[no_choose_nevigate_sort,:]
         loop_num = 4000
         no_choose_loop = int(no_choose_nevigate_sample.shape[0] // loop_num)
-        is_Divisible = no_choose_nevigate_sample.shape[0] % loop_num    # 不能整除的部分
+        is_Divisible = no_choose_nevigate_sample.shape[0] % loop_num    # The part that is not divisible
         pre_nevigate = []
-        for all_nevigate in tqdm(range(no_choose_loop),desc='no_choose_loop'):  # 由于需要预测的负样本数量太多，需要分批次计算预测值
+        for all_nevigate in tqdm(range(no_choose_loop),desc='no_choose_loop'):  # Due to the large number of negative samples to predict, the predicted values need to be calculated in batches
             no_choose_disease = no_choose_nevigate_sample.iloc[all_nevigate*loop_num:(all_nevigate+1)*loop_num,0]
             no_choose_miRNA = no_choose_nevigate_sample.iloc[all_nevigate*loop_num:(all_nevigate+1)*loop_num,1]
             df_no_choose_disease = feature_vector_data.loc[no_choose_disease, :]
             df_no_choose_miRNA = feature_vector_data.loc[no_choose_miRNA, :]
-            df_no_choose_disease.reset_index(drop=True, inplace=True)  # 重置标签
+            df_no_choose_disease.reset_index(drop=True, inplace=True)  # Reset tag
             df_no_choose_miRNA.reset_index(drop=True, inplace=True)
             df_no_choose = pd.concat([df_no_choose_disease, df_no_choose_miRNA], axis=1)
 
@@ -225,12 +225,12 @@ for model_loop in tqdm(range(2),desc='model_loop'):
 
             pre_no_choose = net(x_no_choose)
             pre_nevigate.extend(pre_no_choose.reshape(-1).tolist())
-        if is_Divisible != 0:   # 所有未选中的负样本是否可以被loop_num整除
+        if is_Divisible != 0:   # Whether all unselected negative samples can be evenly divided by loop_num
             no_choose_disease = no_choose_nevigate_sample.iloc[no_choose_loop * loop_num:, 0]
             no_choose_miRNA = no_choose_nevigate_sample.iloc[no_choose_loop * loop_num:, 1]
             df_no_choose_disease = feature_vector_data.loc[no_choose_disease, :]
             df_no_choose_miRNA = feature_vector_data.loc[no_choose_miRNA, :]
-            df_no_choose_disease.reset_index(drop=True, inplace=True)  # 重置标签
+            df_no_choose_disease.reset_index(drop=True, inplace=True)  # Reset tag
             df_no_choose_miRNA.reset_index(drop=True, inplace=True)
             df_no_choose = pd.concat([df_no_choose_disease, df_no_choose_miRNA], axis=1)
             x_no_choose = torch.from_numpy(df_no_choose.values).float().to(device)
